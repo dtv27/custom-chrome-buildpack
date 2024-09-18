@@ -1,0 +1,25 @@
+# bin/compile
+#!/bin/bash
+
+BUILD_DIR=$1
+CACHE_DIR=$2
+ENV_DIR=$3
+
+# Create directories for Chrome and ChromeDriver
+mkdir -p "$BUILD_DIR/.apt/usr/bin"
+mkdir -p "$BUILD_DIR/.chromedriver/bin"
+
+# Download specific version of Chrome
+echo "Downloading Chrome 128.0.6613.137..."
+curl -O https://storage.googleapis.com/chrome-for-testing-public/128.0.6613.137/linux64/chrome-linux64.zip
+unzip chrome-linux64.zip -d "$BUILD_DIR/.apt/usr/bin/"
+chmod +x "$BUILD_DIR/.apt/usr/bin/chrome-linux64/chrome"
+
+# Download specific version of ChromeDriver
+echo "Downloading ChromeDriver 128.0.6613.137..."
+curl -O https://storage.googleapis.com/chrome-for-testing-public/128.0.6613.137/linux64/chromedriver-linux64.zip
+unzip chromedriver-linux64.zip -d "$BUILD_DIR/.chromedriver/bin/"
+chmod +x "$BUILD_DIR/.chromedriver/bin/chromedriver-linux64/chromedriver"
+
+echo "Chrome and ChromeDriver installed."
+

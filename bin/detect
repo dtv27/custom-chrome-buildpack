@@ -1,0 +1,5 @@
+# bin/detect
+#!/bin/sh
+echo "Custom Chrome Buildpack"
+exit 0
+

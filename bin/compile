@@ -1,25 +1,73 @@
-# bin/compile
-#!/bin/bash
+#!/usr/bin/env bash
+# bin/compile <build-dir> <cache-dir> <env-dir>
 
+# fail fast
+set -e
+set -o pipefail
+
+# debug
+# set -x
+
+# parse and derive params
 BUILD_DIR=$1
 CACHE_DIR=$2
 ENV_DIR=$3
+BUILDPACK_DIR="$(cd "$(dirname "$0")"; cd ..; pwd)"
 
-# Create directories for Chrome and ChromeDriver
-mkdir -p "$BUILD_DIR/.apt/usr/bin"
-mkdir -p "$BUILD_DIR/.chromedriver/bin"
+function error() {
+  echo " !     $*" >&2
+  exit 1
+}
 
-# Download specific version of Chrome
-echo "Downloading Chrome 128.0.6613.137..."
-curl -O https://storage.googleapis.com/chrome-for-testing-public/128.0.6613.137/linux64/chrome-linux64.zip
-unzip chrome-linux64.zip -d "$BUILD_DIR/.apt/usr/bin/"
-chmod +x "$BUILD_DIR/.apt/usr/bin/chrome-linux64/chrome"
+function topic() {
+  echo "-----> $*"
+}
 
-# Download specific version of ChromeDriver
-echo "Downloading ChromeDriver 128.0.6613.137..."
-curl -O https://storage.googleapis.com/chrome-for-testing-public/128.0.6613.137/linux64/chromedriver-linux64.zip
-unzip chromedriver-linux64.zip -d "$BUILD_DIR/.chromedriver/bin/"
-chmod +x "$BUILD_DIR/.chromedriver/bin/chromedriver-linux64/chromedriver"
+function indent() {
+  c='s/^/       /'
+  case $(uname) in
+    Darwin) sed -l "$c";;
+    *)      sed -u "$c";;
+  esac
+}
 
-echo "Chrome and ChromeDriver installed."
+topic "Installing Chrome version 128.0.6613.137"
 
+INSTALL_DIR="$BUILD_DIR/.chrome-for-testing"
+mkdir -p "$INSTALL_DIR"
+
+
+# Detect if Chrome is already installed
+if which chrome; then
+  error "Chrome is already installed. This buildpack now installs a compatible version of Chrome. Please, remove the other Chrome installation. Chrome may have been installed by another buildpack (such as heroku/heroku-buildpack-google-chrome buildpack), which should no longer be used with this buildpack."
+fi
+
+# Use fixed version for Chrome and ChromeDriver
+VERSION="128.0.6613.137"
+
+echo "Downloading Chrome version $VERSION" | indent
+ZIP_URL="https://storage.googleapis.com/chrome-for-testing-public/128.0.6613.137/linux64/chrome-linux64.zip"
+ZIP_LOCATION="$INSTALL_DIR/chrome.zip"
+curl --silent --show-error --fail --retry 3 --retry-connrefused --connect-timeout 10 -o "${ZIP_LOCATION}" "${ZIP_URL}" | indent
+unzip -q -o "$ZIP_LOCATION" -d "$INSTALL_DIR" | indent
+rm -f "$ZIP_LOCATION"
+
+echo "Downloading Chromedriver version $VERSION" | indent
+ZIP_URL="https://storage.googleapis.com/chrome-for-testing-public/128.0.6613.137/linux64/chromedriver-linux64.zip"
+ZIP_LOCATION="$INSTALL_DIR/chromedriver.zip"
+curl --silent --show-error --fail --retry 3 --retry-connrefused --connect-timeout 10 -o "${ZIP_LOCATION}" "${ZIP_URL}" | indent
+unzip -q -o "$ZIP_LOCATION" -d "$INSTALL_DIR" | indent
+rm -f "$ZIP_LOCATION"
+
+source "$BUILDPACK_DIR/bin/install-chrome-dependencies"
+
+echo "Adding executables to PATH" | indent
+mkdir -p "$BUILD_DIR/.profile.d"
+echo "export PATH=\$HOME/.chrome-for-testing/chrome-linux64:\$HOME/.chrome-for-testing/chromedriver-linux64:\$PATH" >> "$BUILD_DIR/.profile.d/chrome-for-testing.sh"
+
+# Verify the executables are actually present
+export PATH="$BUILD_DIR/.chrome-for-testing/chrome-linux64:$BUILD_DIR/.chrome-for-testing/chromedriver-linux64:$PATH"
+which chrome | indent
+which chromedriver | indent
+
+echo "Installed Chrome and Chromedriver version $VERSION" | indent
